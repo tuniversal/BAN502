@@ -1,0 +1,175 @@
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(mice) #package for imputation
+library(VIM) #visualizing missingness
+library(ranger) #for random forests
+library(randomForest) #also for random forests
+library(caret)
+library(gridExtra)
+```
+
+
+```{r}
+drug = read_csv("drug_data.csv")
+```
+
+```{r}
+names(drug) = c("ID", "Age", "Gender", "Education", "Country", "Ethnicity",
+"Nscore", "Escore", "Oscore", "Ascore", "Cscore", "Impulsive",
+"SS", "Alcohol", "Amphet", "Amyl", "Benzos", "Caff", "Cannabis",
+"Choc", "Coke", "Crack", "Ecstasy", "Heroin", "Ketamine", "Legalh",
+"LSD", "Meth", "Mushrooms", "Nicotine", "Semer", "VSA")
+
+```
+
+```{r}
+drug[drug == "CL0"] = "No"
+drug[drug == "CL1"] = "No"
+drug[drug == "CL2"] = "Yes"
+drug[drug == "CL3"] = "Yes"
+drug[drug == "CL4"] = "Yes"
+drug[drug == "CL5"] = "Yes"
+drug[drug == "CL6"] = "Yes"
+```
+
+```{r}
+drug_clean = drug %>% mutate_at(vars(Age:Ethnicity), funs(as_factor)) %>%
+mutate(Age = factor(Age, labels = c("18_24", "25_34", "35_44", "45_54",
+"55_64", "65_"))) %>%
+mutate(Gender = factor(Gender, labels = c("Male", "Female"))) %>%
+mutate(Education = factor(Education, labels = c("Under16", "At16", "At17", "At18",
+"SomeCollege","ProfessionalCert",
+"Bachelors", "Masters",
+"Doctorate"))) %>%
+mutate(Country = factor(Country, labels = c("USA", "NewZealand", "Other", "Australia",
+"Ireland","Canada","UK"))) %>%
+mutate(Ethnicity = factor(Ethnicity, labels = c("Black", "Asian", "White",
+"White/Black", "Other",
+"White/Asian", "Black/Asian"))) %>%
+mutate_at(vars(Alcohol:VSA), funs(as_factor)) %>%
+select(-ID)
+1
+```
+
+```{r}
+str(drug_clean)
+```
+
+```{r}
+drug_clean = drug_clean %>% select(!(Alcohol:Mushrooms)) %>% select(!(Semer:VSA))
+```
+
+```{r}
+summary(drug_clean)
+```
+
+```{r}
+set.seed(1234) 
+drug_split = initial_split(drug_clean, prop = 0.7, strata = Nicotine) 
+train = training(drug_split)
+test = testing(drug_split)
+```
+
+```{r}
+drug_recipe = recipe(Nicotine ~., train) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+rf_model = rand_forest() %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+
+drug_wflow = 
+  workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(drug_recipe)
+
+set.seed(123)
+drug_fit = fit(drug_wflow, train)
+```
+
+```{r}
+drug_fit
+```
+
+```{r}
+predRF = predict(drug_fit, train)
+head(predRF)
+```
+
+```{r}
+confusionMatrix(predRF$.pred_class, train$Nicotine, positive = "Yes")
+```
+
+```{r}
+drug_recipe_test = recipe(Nicotine ~., test) %>%
+  step_dummy(all_nominal(), -all_outcomes())
+
+rf_model = rand_forest() %>% 
+  set_engine("ranger") %>% 
+  set_mode("classification")
+
+drug_wflow = 
+  workflow() %>% 
+  add_model(rf_model) %>% 
+  add_recipe(drug_recipe_test)
+
+set.seed(123)
+drug_fit_test = fit(drug_wflow, test)
+```
+
+```{r}
+drug_fit_test
+```
+
+```{r}
+predRF = predict(drug_fit_test, test)
+head(predRF)
+```
+
+```{r}
+confusionMatrix(predRF$.pred_class, test$Nicotine, positive = "Yes")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

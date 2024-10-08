@@ -1,0 +1,120 @@
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(cluster)
+library(factoextra)
+library(dendextend)
+```
+
+```{r}
+trucks = read_csv("trucks.csv")
+str(trucks)
+summary(trucks)
+```
+```{r}
+ggplot(data = trucks, aes(Distance,Speeding)) +
+  geom_point()
+```
+
+```{r}
+trucks_cleaned = trucks %>% select(-Driver_ID)
+str(trucks)
+summary(trucks)
+```
+
+```{r}
+kmeans_recipe = recipe(~ Distance + Speeding, trucks_cleaned) 
+
+trucks_dummy = kmeans_recipe %>% 
+  step_dummy(all_nominal(), one_hot = TRUE) %>%
+  step_scale(all_numeric()) %>%
+  step_center(all_numeric()) 
+
+trucks_dummy = prep(trucks_dummy, trucks_cleaned) #prepares the recipe
+
+truckscleaned = bake(trucks_dummy, trucks_cleaned) #applies the recipe and yields a data frame
+```
+
+```{r}
+#we have two data frames now, one scaled and dummied and one with just row-wise deletion of missingness
+summary(truckscleaned)
+summary(trucks)
+```
+
+```{r}
+set.seed(412)
+clusts = 
+  tibble(k = 1:8) %>%
+  mutate(
+    kclust = map(k, ~kmeans(truckscleaned, .x)),
+    tidied = map(kclust, tidy),
+    glanced = map(kclust, glance),
+    augmented = map(kclust, augment, truckscleaned)
+  )
+
+clusts
+```
+
+```{r}
+clusters = 
+  clusts %>%
+  unnest(cols = c(tidied))
+
+assignments = 
+  clusts %>% 
+  unnest(cols = c(augmented))
+
+clusterings = 
+  clusts %>%
+  unnest(cols = c(glanced))
+```
+
+```{r}
+p1 = 
+  ggplot(assignments, aes(x = Distance, y = Speeding)) +
+  geom_point(aes(color = .cluster), alpha = 0.8) + 
+  facet_wrap(~ k)
+p1
+```
+```{r}
+ggplot(clusterings, aes(k, tot.withinss)) +
+  geom_line() +
+  geom_point()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
